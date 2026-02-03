@@ -1,22 +1,22 @@
 name: megapose
 channels:
-   - conda-forge
-   - pytorch
-   - anaconda
-   - defaults
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
 dependencies:
   - python=3.9
   - pip
   - wget
   - python-wget
   - joblib
-  - pytorch==1.11.0
-  - torchvision==0.12.0
-  - cudatoolkit==11.3.1
+  - pytorch
+  - torchvision
+  - pytorch-cuda=12.1 
   - ipython
   - ipykernel
   - jupyterlab
-  - notebook
+  - notebook==6.4.12
   - nb_conda_kernels
   - jupyter_contrib_nbextensions
   - pinocchio
@@ -27,6 +27,7 @@ dependencies:
   - geckodriver
   - firefox
   - pip:
+      - numpy<2
       - meshcat
       - selenium
       - omegaconf
