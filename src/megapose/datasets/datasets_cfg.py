@@ -140,6 +140,10 @@ def make_scene_dataset(
         ds_dir = BOP_DS_DIR / "tudl"
         ds = BOPDataset(ds_dir, split="train_real", label_format="tudl-{label}")
 
+    # our custom objects (local_data/custom_objects/models)
+    elif ds_name == "custom":
+        ds = BOPObjectDataset(LOCAL_DATA_DIR / "custom_objects/models", label_format="custom-{label}")
+
     # PBR training sets
     elif ds_name == "hb.pbr":
         ds_dir = BOP_DS_DIR / "hb"
