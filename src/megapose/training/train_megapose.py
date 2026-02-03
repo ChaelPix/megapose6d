@@ -219,6 +219,9 @@ def train_megapose(cfg: TrainingConfig) -> None:
     if cfg.run_id_pretrain is not None:
         pretrain_path = EXP_DIR / cfg.run_id_pretrain / "checkpoint.pth.tar"
         pretrain_ckpt = torch.load(pretrain_path)["state_dict"]
+        # apply compatibility fix for older checkpoint formats (changes key naming)
+        from megapose.utils.models_compat import change_keys_of_older_models
+        pretrain_ckpt = change_keys_of_older_models(pretrain_ckpt)
         model.load_state_dict(pretrain_ckpt)
         logger.info(f"Using pretrained model from {pretrain_path}.")
 
@@ -276,6 +279,12 @@ def train_megapose(cfg: TrainingConfig) -> None:
 
         forward_loss_fn = functools.partial(
             megapose_forward_loss, model=model, cfg=cfg, n_iterations=n_iterations, mesh_db=mesh_db
+        )
+
+        should_visualize = (
+            cfg.do_visualization
+            and cfg.vis_epoch_interval is not None
+            and epoch % cfg.vis_epoch_interval == 0
         )
 
         def train() -> None:
@@ -369,11 +378,38 @@ def train_megapose(cfg: TrainingConfig) -> None:
                 )
                 meters_val["loss_total"].add(loss.item())
 
+        @torch.no_grad()
+        def generate_visualization() -> dict:
+            model.eval()
+            vis_meters: Dict[str, Any] = defaultdict(lambda: AverageValueMeter())
+            vis_debug_dict: Dict[str, Any] = dict()
+            data = next(iter_train)
+            _ = forward_loss_fn(
+                data=data,
+                meters=vis_meters,
+                train=False,
+                make_visualization=True,
+                debug_dict=vis_debug_dict,
+            )
+            bokeh_docs = {}
+            if "bokeh_doc_hypotheses" in vis_meters:
+                bokeh_docs["hypotheses"] = vis_meters["bokeh_doc_hypotheses"]
+            model.train()
+            return bokeh_docs
+
         train()
 
         do_eval = epoch % cfg.val_epoch_interval == 0 or epoch == 1
         if do_eval and ds_iter_val is not None:
             validation()
+
+        bokeh_docs = None
+        if should_visualize and get_rank() == 0:
+            try:
+                bokeh_docs = generate_visualization()
+                logger.info(f"Generated visualization for epoch {epoch}")
+            except Exception as e:
+                logger.warning(f"Visualization generation failed: {e}")
 
         log_dict = dict()
         log_dict.update(
@@ -406,6 +442,7 @@ def train_megapose(cfg: TrainingConfig) -> None:
                 model,
                 epoch,
                 log_dict=log_dict,
+                bokeh_docs=bokeh_docs,
             )
 
         dist.barrier()

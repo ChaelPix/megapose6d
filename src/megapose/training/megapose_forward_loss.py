@@ -130,7 +130,8 @@ def megapose_forward_loss(
                     positive_idx = np.random.randint(cfg.n_rendered_views)
                     views_permutation[1, b, positive_idx] = 0
                     is_hypothesis_positive[b, positive_idx] = 1
-        hypotheses_TCO_init = TCV_O[views_permutation]
+        # use explicit dimension indexing for pytorch compatibility (numpy-style indexing fails on cuda)
+        hypotheses_TCO_init = TCV_O[views_permutation[0], views_permutation[1]]
 
     elif cfg.hypotheses_init_method == "coarse_classif_multiview_SO3_grid":
         # TODO
